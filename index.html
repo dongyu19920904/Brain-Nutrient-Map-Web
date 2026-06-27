@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="脑健康成分地图：围绕麦角硫因、饮食来源和脑健康研究信号的中文互动工具。">
+    <title>脑健康成分地图 | Brain Nutrient Map</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="assets/styles.css">
+    <script defer src="assets/app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="脑健康成分地图">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>
+          <strong>Brain Nutrient Map</strong>
+          <small>AI 延续学实验 002</small>
+        </span>
+      </a>
+      <nav class="nav" aria-label="主导航">
+        <a href="#tool">工具</a>
+        <a href="#evidence">证据</a>
+        <a href="#offer">资料包</a>
+      </nav>
+    </header>
+
+    <main>
+      <section id="tool" class="workspace">
+        <div class="intro">
+          <div>
+            <p class="eyebrow">Daily longevity opportunity build</p>
+            <h1>脑健康成分地图</h1>
+            <p class="lead">从最新“血液代谢物 × 脑健康”研究线索出发，把麦角硫因、食物来源和中年脑健康关注点做成一张可分享的观察卡。</p>
+          </div>
+          <div class="experiment-badge">
+            <span>今日项目</span>
+            <strong>麦角硫因 × 脑健康</strong>
+          </div>
+        </div>
+
+        <div class="tool-grid">
+          <form class="control-panel" id="brainForm">
+            <div class="panel-title">
+              <div>
+                <h2>生成我的观察卡</h2>
+                <p>选择你最关心的问题，页面会生成一段适合发朋友圈/小红书的保守表达。</p>
+              </div>
+            </div>
+
+            <fieldset>
+              <legend>我最关心</legend>
+              <div class="option-grid">
+                <label><input type="radio" name="concern" value="memory" checked> 记忆力变差</label>
+                <label><input type="radio" name="concern" value="brainfog"> 脑雾和注意力</label>
+                <label><input type="radio" name="concern" value="parents"> 父母认知健康</label>
+                <label><input type="radio" name="concern" value="menopause"> 更年期脑健康</label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>我的饮食状态</legend>
+              <div class="range-row">
+                <label for="mushroomMeals">每周菌菇/蘑菇类餐次</label>
+                <input id="mushroomMeals" type="range" min="0" max="7" value="1">
+                <output id="mushroomMealsOut">1 次</output>
+              </div>
+              <div class="check-list">
+                <label><input type="checkbox" value="low_sleep"> 最近睡眠不足</label>
+                <label><input type="checkbox" value="stress"> 压力偏高</label>
+                <label><input type="checkbox" value="sugar"> 担心血糖/代谢</label>
+                <label><input type="checkbox" value="parent_care"> 正在照顾父母健康</label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>想优先看</legend>
+              <div class="segmented" role="group" aria-label="食物筛选">
+                <button type="button" data-filter="all" class="active">全部</button>
+                <button type="button" data-filter="high">高优先</button>
+                <button type="button" data-filter="easy">好执行</button>
+                <button type="button" data-filter="plant">植物来源</button>
+              </div>
+            </fieldset>
+
+            <div class="actions">
+              <button type="submit" class="primary-button">刷新观察卡</button>
+              <button type="button" class="ghost-button" id="copyShareBtn">复制分享文案</button>
+            </div>
+            <p class="fine-print">本工具只做健康信息整理和自我复盘，不构成医学诊断、补充剂推荐或疾病预防建议。</p>
+          </form>
+
+          <aside class="result-panel">
+            <div class="share-card-wrap">
+              <canvas id="shareCanvas" width="900" height="1120" aria-label="脑健康成分观察卡"></canvas>
+            </div>
+            <div class="result-copy">
+              <h2 id="resultTitle">脑健康观察重点</h2>
+              <p id="resultSummary">等待生成。</p>
+              <div id="actionList" class="action-list"></div>
+              <button type="button" class="primary-button" id="downloadCardBtn">下载分享卡 PNG</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="food-section">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Food map</p>
+            <h2>麦角硫因食物来源观察表</h2>
+          </div>
+          <p>这里不用“补充剂”叙事，只做日常食物和研究信号整理。</p>
+        </div>
+        <div id="foodGrid" class="food-grid"></div>
+      </section>
+
+      <section id="evidence" class="evidence-section">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Evidence, not hype</p>
+            <h2>今天的研究依据和边界</h2>
+          </div>
+        </div>
+        <div class="evidence-grid">
+          <article>
+            <h3>血液代谢物与脑健康</h3>
+            <p>最新新闻摘要提到，研究在无痴呆中年人群中测量大量血浆代谢物，发现若干代谢物与认知表现和脑 MRI 结构相关，其中包括麦角硫因信号。</p>
+            <a href="https://www.news-medical.net/news/20260625/Blood-metabolites-reveal-lifestyle-links-to-brain-health-before-dementia.aspx" target="_blank" rel="noreferrer">查看来源</a>
+          </article>
+          <article>
+            <h3>女性脑健康线索</h3>
+            <p>女性激素暴露时长与脑结构的报道适合做背景选题，但不能延伸成 HRT 建议。任何激素治疗相关问题都应咨询医生。</p>
+            <a href="https://www.news-medical.net/news/20260626/Longer-hormone-exposure-linked-to-healthier-brain-aging-in-women.aspx" target="_blank" rel="noreferrer">查看来源</a>
+          </article>
+          <article>
+            <h3>合规边界</h3>
+            <p>本页面不声称麦角硫因能预防痴呆，不推荐任何补充剂，不提供检测、诊断或治疗建议。它只是 AI 延续学日报中的一个低成本验证项目。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="offer" class="offer-band">
+        <div>
+          <p class="eyebrow">Monetization test</p>
+          <h2>今天的低价资料包验证</h2>
+          <p>如果这张地图有收藏和转发，就把它升级成「中年脑健康自查清单」和「父母脑健康观察资料包」。</p>
+        </div>
+        <div class="offer-card">
+          <strong>9.9 元资料包雏形</strong>
+          <ul>
+            <li>脑健康 7 个自查问题</li>
+            <li>麦角硫因食物来源表</li>
+            <li>研究边界说明模板</li>
+            <li>给父母看的温和解释版</li>
+          </ul>
+          <button type="button" class="ghost-button" id="copyOfferBtn">复制下单说明</button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
