@@ -29,7 +29,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -114,6 +116,7 @@ main {
 }
 
 .workspace,
+.ai-report-section,
 .food-section,
 .evidence-section,
 .offer-band {
@@ -196,6 +199,8 @@ h3 {
 
 .control-panel,
 .result-panel,
+.report-actions article,
+.report-output,
 .food-card,
 .evidence-grid article,
 .offer-card {
@@ -237,14 +242,16 @@ legend {
 }
 
 .option-grid,
-.check-list {
+.check-list,
+.mini-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
 .option-grid label,
-.check-list label {
+.check-list label,
+.mini-grid label {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -254,6 +261,43 @@ legend {
   border-radius: 6px;
   background: #fbfcfa;
   font-size: 14px;
+}
+
+.mini-grid label {
+  background: transparent;
+  border: 0;
+  min-height: auto;
+  padding: 0;
+  font-weight: 800;
+}
+
+select,
+textarea,
+.code-row input {
+  width: 100%;
+  border: 1px solid #dce5dd;
+  border-radius: 6px;
+  background: #fbfcfa;
+  color: var(--ink);
+}
+
+select,
+.code-row input {
+  min-height: 42px;
+  padding: 8px 10px;
+}
+
+.textarea-label {
+  display: block;
+  margin: 14px 0 8px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+textarea {
+  resize: vertical;
+  padding: 10px 12px;
+  line-height: 1.55;
 }
 
 .range-row {
@@ -374,6 +418,7 @@ canvas {
 }
 
 .food-section,
+.ai-report-section,
 .evidence-section,
 .offer-band {
   margin-top: 24px;
@@ -388,10 +433,76 @@ canvas {
 }
 
 .food-grid,
-.evidence-grid {
+.evidence-grid,
+.report-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}
+
+.report-grid {
+  grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.15fr);
+  align-items: start;
+}
+
+.report-actions {
+  display: grid;
+  gap: 14px;
+}
+
+.report-actions article,
+.report-output {
+  padding: 16px;
+  box-shadow: none;
+}
+
+.report-actions p,
+.report-output p,
+.report-output li {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.report-output {
+  min-height: 310px;
+}
+
+.report-output h3,
+.report-output h4 {
+  margin-top: 16px;
+}
+
+.report-output h3:first-child,
+.report-output h4:first-child {
+  margin-top: 0;
+}
+
+.report-output ul,
+.report-output ol {
+  padding-left: 20px;
+}
+
+.report-output .status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--green-dark);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.report-output .error {
+  background: #fff0ed;
+  color: #9a3412;
+}
+
+.code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
 }
 
 .food-card {
@@ -449,6 +560,7 @@ canvas {
   .tool-grid,
   .result-panel,
   .intro,
+  .report-grid,
   .offer-band {
     grid-template-columns: 1fr;
   }
@@ -476,11 +588,14 @@ canvas {
 
   .option-grid,
   .check-list,
+  .mini-grid,
   .food-grid,
   .evidence-grid,
+  .report-grid,
   .range-row,
   .segmented,
-  .section-head {
+  .section-head,
+  .code-row {
     grid-template-columns: 1fr;
   }
 

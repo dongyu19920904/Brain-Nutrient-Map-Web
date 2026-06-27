@@ -1,0 +1,18 @@
+name = "brain-nutrient-map-api"
+main = "src/index.js"
+compatibility_date = "2026-06-27"
+workers_dev = true
+
+[vars]
+ANTHROPIC_API_URL = "https://cloudcode.bdjd.cc"
+DEFAULT_ANTHROPIC_MODEL = "claude-opus-4-6"
+ALLOWED_ORIGINS = "https://dongyu19920904.github.io,https://yuyu.aivora.cn,https://brain.aivora.cn,http://127.0.0.1:8787,http://localhost:8787"
+PREVIEW_DAILY_LIMIT = "10"
+
+[[kv_namespaces]]
+binding = "BRAIN_REPORT_CODES"
+id = "45e846a183a64945b774088bff65e263"
+
+[[kv_namespaces]]
+binding = "BRAIN_REPORT_LIMITS"
+id = "60f2b0c3db84482eb655e719b5d93cc1"

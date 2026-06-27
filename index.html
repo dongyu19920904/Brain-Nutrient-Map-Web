@@ -20,6 +20,7 @@
       </a>
       <nav class="nav" aria-label="主导航">
         <a href="#tool">工具</a>
+        <a href="#ai-report">AI 报告</a>
         <a href="#evidence">证据</a>
         <a href="#offer">资料包</a>
       </nav>
@@ -43,8 +44,8 @@
           <form class="control-panel" id="brainForm">
             <div class="panel-title">
               <div>
-                <h2>生成我的观察卡</h2>
-                <p>选择你最关心的问题，页面会生成一段适合发朋友圈/小红书的保守表达。</p>
+                <h2>生成我的脑健康复盘</h2>
+                <p>适合 35-60 岁关注脑雾、记忆力和父母认知健康的人。先做低风险复盘，再决定是否需要深度 AI 报告。</p>
               </div>
             </div>
 
@@ -56,6 +57,28 @@
                 <label><input type="radio" name="concern" value="parents"> 父母认知健康</label>
                 <label><input type="radio" name="concern" value="menopause"> 更年期脑健康</label>
               </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>使用场景</legend>
+              <div class="mini-grid">
+                <label for="ageBand">年龄段</label>
+                <select id="ageBand">
+                  <option value="35-45">35-45 岁</option>
+                  <option value="46-55" selected>46-55 岁</option>
+                  <option value="56-65">56-65 岁</option>
+                  <option value="65+">65 岁以上</option>
+                </select>
+                <label for="roleType">给谁看</label>
+                <select id="roleType">
+                  <option value="self" selected>给自己复盘</option>
+                  <option value="parent">给父母复盘</option>
+                  <option value="partner">给伴侣复盘</option>
+                  <option value="content">做科普内容选题</option>
+                </select>
+              </div>
+              <label class="textarea-label" for="userNote">最近最困扰我的一句话</label>
+              <textarea id="userNote" maxlength="220" rows="4" placeholder="例如：最近总是想不起刚放下的东西，也睡得不太好，想知道饮食和作息先从哪里改。"></textarea>
             </fieldset>
 
             <fieldset>
@@ -104,6 +127,37 @@
         </div>
       </section>
 
+      <section id="ai-report" class="ai-report-section">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">AI report</p>
+            <h2>AI 脑健康生活方式解读</h2>
+          </div>
+          <p>免费版先给方向，详细版适合做 19.9 元报告交付。</p>
+        </div>
+        <div class="report-grid">
+          <div class="report-actions">
+            <article>
+              <h3>免费 AI 摘要</h3>
+              <p>根据你的关注点、饮食频率和自述，生成一份短版复盘：一句话结论、三个优先级、7 天行动清单。</p>
+              <button type="button" class="primary-button" id="generatePreviewBtn">生成免费 AI 摘要</button>
+            </article>
+            <article>
+              <h3>19.9 元详细报告</h3>
+              <p>购买资料包后输入兑换码，生成更完整的 Markdown 报告，可复制保存或发给家人讨论。</p>
+              <div class="code-row">
+                <input id="accessCode" type="text" autocomplete="off" placeholder="输入报告兑换码">
+                <button type="button" class="ghost-button" id="generatePaidBtn">生成详细报告</button>
+              </div>
+            </article>
+          </div>
+          <article class="report-output" id="reportOutput" aria-live="polite">
+            <h3>AI 报告会显示在这里</h3>
+            <p>建议先填写上面的“最近最困扰我的一句话”，报告会更像在解决真实问题，而不是泛泛科普。</p>
+          </article>
+        </div>
+      </section>
+
       <section class="food-section">
         <div class="section-head">
           <div>
@@ -143,16 +197,17 @@
       <section id="offer" class="offer-band">
         <div>
           <p class="eyebrow">Monetization test</p>
-          <h2>今天的低价资料包验证</h2>
-          <p>如果这张地图有收藏和转发，就把它升级成「中年脑健康自查清单」和「父母脑健康观察资料包」。</p>
+          <h2>更清晰的变现路径</h2>
+          <p>免费工具负责传播和获客，AI 摘要负责建立信任，19.9 元详细报告负责验证付费意愿。</p>
         </div>
         <div class="offer-card">
-          <strong>9.9 元资料包雏形</strong>
+          <strong>推荐商品雏形</strong>
           <ul>
-            <li>脑健康 7 个自查问题</li>
+            <li>9.9 元：脑健康自查清单资料包</li>
+            <li>19.9 元：AI 详细生活方式解读报告</li>
             <li>麦角硫因食物来源表</li>
-            <li>研究边界说明模板</li>
             <li>给父母看的温和解释版</li>
+            <li>适合微信群、小红书、朋友圈引流</li>
           </ul>
           <button type="button" class="ghost-button" id="copyOfferBtn">复制下单说明</button>
         </div>

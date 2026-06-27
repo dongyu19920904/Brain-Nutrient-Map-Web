@@ -1,3 +1,5 @@
+const REPORT_API_BASE = (window.BRAIN_REPORT_API_BASE || "https://brain-nutrient-map-api.sabrinamisan090.workers.dev").replace(/\/+$/, "");
+
 const concerns = {
   memory: {
     title: "记忆力变差",
@@ -82,8 +84,16 @@ const foods = [
   }
 ];
 
+const flagLabels = {
+  low_sleep: "睡眠不足",
+  stress: "压力偏高",
+  sugar: "代谢/血糖担心",
+  parent_care: "父母健康照护"
+};
+
 let activeFilter = "all";
 let latestShareText = "";
+let latestLocalSummary = "";
 
 const $ = (id) => document.getElementById(id);
 
@@ -97,7 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   $("mushroomMeals").addEventListener("input", updateAll);
-  for (const input of document.querySelectorAll("input")) {
+  for (const input of document.querySelectorAll("input, select, textarea")) {
     input.addEventListener("change", updateAll);
   }
 
@@ -113,13 +123,22 @@ document.addEventListener("DOMContentLoaded", () => {
   $("copyShareBtn").addEventListener("click", copyShareText);
   $("copyOfferBtn").addEventListener("click", copyOfferText);
   $("downloadCardBtn").addEventListener("click", downloadCard);
+  $("generatePreviewBtn").addEventListener("click", () => generateAiReport("preview"));
+  $("generatePaidBtn").addEventListener("click", () => generateAiReport("paid"));
 });
 
 function getState() {
   const concern = document.querySelector("input[name='concern']:checked")?.value || "memory";
   const meals = Number($("mushroomMeals").value);
   const flags = Array.from(document.querySelectorAll(".check-list input:checked")).map((item) => item.value);
-  return { concern, meals, flags };
+  return {
+    concern,
+    meals,
+    flags,
+    ageBand: $("ageBand").value,
+    roleType: $("roleType").value,
+    userNote: $("userNote").value.trim().slice(0, 220)
+  };
 }
 
 function updateAll() {
@@ -128,9 +147,11 @@ function updateAll() {
   const concern = concerns[state.concern];
   const level = state.meals >= 3 ? "饮食基础较好" : state.meals >= 1 ? "可以继续增加多样性" : "本周适合从 1 次菌菇开始";
   const flagText = buildFlagText(state.flags);
+  const noteText = state.userNote ? ` 你的自述是：“${state.userNote}”` : "";
 
+  latestLocalSummary = `${level}。${concern.focus}${flagText}${noteText}`;
   $("resultTitle").textContent = concern.title;
-  $("resultSummary").textContent = `${level}。${concern.focus}${flagText}`;
+  $("resultSummary").textContent = latestLocalSummary;
   $("actionList").innerHTML = concern.actions.map((item) => `<div class="action-item">${escapeHtml(item)}</div>`).join("");
 
   latestShareText = buildShareText(state, concern, level);
@@ -139,20 +160,14 @@ function updateAll() {
 
 function buildFlagText(flags) {
   if (!flags.length) return "";
-  const labels = {
-    low_sleep: "睡眠不足",
-    stress: "压力偏高",
-    sugar: "代谢/血糖担心",
-    parent_care: "父母健康照护"
-  };
-  return ` 你还勾选了：${flags.map((flag) => labels[flag]).join("、")}，建议把这些和饮食一起复盘。`;
+  return ` 你还勾选了：${flags.map((flag) => flagLabels[flag]).join("、")}，建议把这些和饮食一起复盘。`;
 }
 
 function buildShareText(state, concern, level) {
   const mealsText = state.meals ? `我每周大概有 ${state.meals} 次菌菇类食物。` : "我几乎不吃菌菇类食物。";
   return [
     "我今天参加了 AI 延续学实验 002：脑健康成分地图。",
-    `我的关注点：${concern.title}。`,
+    `我的关注点：${concern.title}，年龄段：${state.ageBand}。`,
     mealsText,
     `观察结论：${level}。`,
     "这不是补充剂推荐，也不是预防痴呆建议，只是把最新血液代谢物和脑健康研究线索，转成一张饮食复盘卡。"
@@ -181,6 +196,135 @@ function tagLabel(tag) {
   }[tag] || tag;
 }
 
+async function generateAiReport(mode) {
+  updateAll();
+  const state = getState();
+  const concern = concerns[state.concern];
+  const accessCode = $("accessCode").value.trim();
+
+  if (mode === "paid" && !accessCode) {
+    setReportMessage("请先输入购买后获得的报告兑换码。", true);
+    return;
+  }
+
+  setReportMessage(mode === "paid" ? "正在生成详细 AI 报告，通常需要 20-60 秒..." : "正在生成免费 AI 摘要...");
+  toggleReportButtons(true);
+
+  let timer;
+  try {
+    const controller = new AbortController();
+    timer = setTimeout(() => controller.abort(), 90000);
+    const response = await fetch(`${REPORT_API_BASE}/api/report`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        mode,
+        accessCode,
+        source: "brain-nutrient-map-web",
+        state: {
+          concern: concern.title,
+          ageBand: state.ageBand,
+          roleType: roleLabel(state.roleType),
+          mushroomMealsPerWeek: state.meals,
+          flags: state.flags.map((flag) => flagLabels[flag]),
+          userNote: state.userNote,
+          localSummary: latestLocalSummary,
+          localActions: concern.actions
+        }
+      })
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || "AI 报告生成失败，请稍后重试。");
+    }
+    renderMarkdownReport(data.report, mode);
+  } catch (error) {
+    const message = error.name === "AbortError"
+      ? "AI 上游响应超时，请稍后重试。你的输入已经保留，可以直接再点一次生成。"
+      : error.message || "AI 报告生成失败，请稍后重试。";
+    setReportMessage(message, true);
+  } finally {
+    clearTimeout(timer);
+    toggleReportButtons(false);
+  }
+}
+
+function roleLabel(roleType) {
+  return {
+    self: "给自己复盘",
+    parent: "给父母复盘",
+    partner: "给伴侣复盘",
+    content: "做科普内容选题"
+  }[roleType] || roleType;
+}
+
+function setReportMessage(message, isError = false) {
+  $("reportOutput").innerHTML = `<span class="status ${isError ? "error" : ""}">${escapeHtml(message)}</span>`;
+}
+
+function toggleReportButtons(disabled) {
+  $("generatePreviewBtn").disabled = disabled;
+  $("generatePaidBtn").disabled = disabled;
+}
+
+function renderMarkdownReport(markdown, mode) {
+  const label = mode === "paid" ? "详细报告" : "免费摘要";
+  $("reportOutput").innerHTML = `<span class="status">${label}已生成</span>${markdownToHtml(markdown)}`;
+}
+
+function markdownToHtml(markdown) {
+  const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+  let html = "";
+  let inList = false;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      if (inList) {
+        html += "</ul>";
+        inList = false;
+      }
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      if (inList) {
+        html += "</ul>";
+        inList = false;
+      }
+      const level = Math.min(4, heading[1].length + 2);
+      html += `<h${level}>${escapeHtml(heading[2])}</h${level}>`;
+      continue;
+    }
+
+    const listItem = line.match(/^[-*]\s+(.+)$/);
+    if (listItem) {
+      if (!inList) {
+        html += "<ul>";
+        inList = true;
+      }
+      html += `<li>${inlineMarkdown(listItem[1])}</li>`;
+      continue;
+    }
+
+    if (inList) {
+      html += "</ul>";
+      inList = false;
+    }
+    html += `<p>${inlineMarkdown(line)}</p>`;
+  }
+
+  if (inList) html += "</ul>";
+  return html;
+}
+
+function inlineMarkdown(text) {
+  return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
 function drawCard(state, concern, level) {
   const canvas = $("shareCanvas");
   const ctx = canvas.getContext("2d");
@@ -196,7 +340,7 @@ function drawCard(state, concern, level) {
   ctx.fill();
 
   ctx.fillStyle = "#2f7d49";
-  roundRect(ctx, 90, 90, 180, 42, 21);
+  roundRect(ctx, 90, 90, 190, 42, 21);
   ctx.fill();
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 22px sans-serif";
@@ -208,30 +352,66 @@ function drawCard(state, concern, level) {
 
   ctx.fillStyle = "#64716b";
   ctx.font = "28px sans-serif";
-  wrapText(ctx, "麦角硫因不是神药。它只是最新脑健康代谢物研究里值得观察的一个饮食信号。", 90, 258, 700, 40);
+  wrapText(ctx, "不是补充剂神话，而是一份脑健康饮食和生活方式复盘。", 90, 258, 700, 40);
 
-  drawBrainIcon(ctx, 650, 150);
-  drawMealBars(ctx, state.meals);
+  drawBrainIcon(ctx, 650, 145);
+  drawMealBlock(ctx, state.meals);
+  drawConcernBlock(ctx, state, concern, level);
+  drawFoodBlock(ctx);
+
+  ctx.fillStyle = "#64716b";
+  ctx.font = "22px sans-serif";
+  wrapText(ctx, "边界：只做健康信息整理，不声称预防痴呆，不推荐补充剂，不替代医生建议。", 90, 1010, 720, 30);
+}
+
+function drawMealBlock(ctx, meals) {
+  ctx.fillStyle = "#f3f7f2";
+  roundRect(ctx, 90, 345, 720, 165, 20);
+  ctx.fill();
 
   ctx.fillStyle = "#18231f";
-  ctx.font = "900 34px sans-serif";
-  ctx.fillText(`关注点：${concern.title}`, 90, 520);
+  ctx.font = "900 28px sans-serif";
+  ctx.fillText("每周菌菇餐次", 120, 395);
+  for (let i = 0; i < 7; i++) {
+    ctx.fillStyle = i < meals ? "#2f7d49" : "#d7e0d8";
+    roundRect(ctx, 120 + i * 58, 420, 42, 58, 12);
+    ctx.fill();
+  }
+  ctx.fillStyle = "#7a4d79";
+  ctx.font = "900 46px sans-serif";
+  ctx.fillText(`${meals} 次`, 630, 460);
+}
+
+function drawConcernBlock(ctx, state, concern, level) {
+  ctx.fillStyle = "#fffaf0";
+  roundRect(ctx, 90, 545, 720, 190, 20);
+  ctx.fill();
+
+  ctx.fillStyle = "#18231f";
+  ctx.font = "900 32px sans-serif";
+  ctx.fillText(`关注点：${concern.title}`, 120, 600);
+
+  ctx.fillStyle = "#64716b";
+  ctx.font = "700 24px sans-serif";
+  ctx.fillText(`年龄段：${state.ageBand} · ${roleLabel(state.roleType)}`, 120, 640);
 
   ctx.fillStyle = "#315d8a";
-  ctx.font = "800 30px sans-serif";
-  ctx.fillText(level, 90, 572);
+  ctx.font = "800 28px sans-serif";
+  ctx.fillText(level, 120, 685);
 
   ctx.fillStyle = "#18231f";
-  ctx.font = "700 26px sans-serif";
-  wrapText(ctx, concern.focus, 90, 628, 700, 38);
+  ctx.font = "700 23px sans-serif";
+  wrapText(ctx, concern.focus, 120, 720, 640, 34);
+}
 
+function drawFoodBlock(ctx) {
   const topFoods = ["香菇", "平菇", "杏鲍菇", "双孢蘑菇"];
   ctx.fillStyle = "#225f38";
   ctx.font = "900 28px sans-serif";
-  ctx.fillText("本周可以先看这些食物", 90, 790);
+  ctx.fillText("本周可以先看这些食物", 90, 800);
   topFoods.forEach((food, index) => {
     const x = 90 + (index % 2) * 320;
-    const y = 830 + Math.floor(index / 2) * 70;
+    const y = 840 + Math.floor(index / 2) * 68;
     ctx.fillStyle = index < 2 ? "#eef4ed" : "#f7f2e8";
     roundRect(ctx, x, y, 260, 46, 14);
     ctx.fill();
@@ -239,24 +419,6 @@ function drawCard(state, concern, level) {
     ctx.font = "700 24px sans-serif";
     ctx.fillText(food, x + 24, y + 31);
   });
-
-  ctx.fillStyle = "#64716b";
-  ctx.font = "22px sans-serif";
-  wrapText(ctx, "边界：只做健康信息整理，不声称预防痴呆，不推荐补充剂，不替代医生建议。", 90, 1010, 720, 30);
-}
-
-function drawMealBars(ctx, meals) {
-  ctx.fillStyle = "#18231f";
-  ctx.font = "900 28px sans-serif";
-  ctx.fillText("每周菌菇餐次", 90, 400);
-  for (let i = 0; i < 7; i++) {
-    ctx.fillStyle = i < meals ? "#2f7d49" : "#d7e0d8";
-    roundRect(ctx, 90 + i * 62, 425, 46, 120 - i * 7, 14);
-    ctx.fill();
-  }
-  ctx.fillStyle = "#7a4d79";
-  ctx.font = "900 48px sans-serif";
-  ctx.fillText(`${meals} 次`, 580, 470);
 }
 
 function drawBrainIcon(ctx, x, y) {
@@ -315,8 +477,8 @@ async function copyShareText() {
 
 async function copyOfferText() {
   const text = [
-    "我想要「中年脑健康自查清单」资料包。",
-    "希望包含：脑健康 7 个自查问题、麦角硫因食物来源表、研究边界说明、给父母看的解释版。",
+    "我想要「中年脑健康 AI 详细解读报告」。",
+    "希望包含：一句话结论、优先级排序、7 天行动清单、麦角硫因食物来源表、给父母看的解释版。",
     "备注：我知道这不是医疗诊断，也不是补充剂推荐。"
   ].join("\n");
   await navigator.clipboard.writeText(text);
