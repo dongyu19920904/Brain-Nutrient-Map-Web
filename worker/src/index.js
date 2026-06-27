@@ -167,6 +167,14 @@ async function validateAccessCode(env, accessCode) {
 
   if (env.REPORT_MODE === "open") return { type: "open" };
 
+  const authorCodes = String(env.AUTHOR_ACCESS_CODES || "")
+    .split(",")
+    .map(normalizeCode)
+    .filter(Boolean);
+  if (authorCodes.includes(accessCode)) {
+    return { type: "author" };
+  }
+
   if (env.BRAIN_REPORT_CODES) {
     const key = `code:${accessCode}`;
     const raw = await env.BRAIN_REPORT_CODES.get(key);
