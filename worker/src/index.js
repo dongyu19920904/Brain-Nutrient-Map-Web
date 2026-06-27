@@ -30,6 +30,29 @@ export default {
       return json({ ok: true, service: "brain-nutrient-map-api" }, 200, cors);
     }
 
+    if (url.pathname === "/api/image") {
+      if (request.method !== "POST") {
+        return json({ ok: false, error: "Method not allowed" }, 405, cors);
+      }
+
+      try {
+        const payload = await readImagePayload(request);
+        await enforceImageLimit(request, env);
+        const result = await callImageApi(env, payload);
+        return json({
+          ok: true,
+          image: result.image,
+          caption: result.caption
+        }, 200, cors);
+      } catch (error) {
+        const status = error.status || 500;
+        return json({
+          ok: false,
+          error: error.publicMessage || "AI 配图生成失败，请稍后重试。"
+        }, status, cors);
+      }
+    }
+
     if (url.pathname !== "/api/report") {
       return json({ ok: false, error: "Not found" }, 404, cors);
     }
@@ -110,6 +133,27 @@ async function readPayload(request) {
   };
 }
 
+async function readImagePayload(request) {
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    throw publicError(400, "请求格式不正确。");
+  }
+
+  const style = ["report", "parent", "social"].includes(payload.style) ? payload.style : "report";
+  const state = sanitizeImageState(payload.state || {});
+  if (!state.concern) {
+    throw publicError(400, "请先选择你的关注点。");
+  }
+
+  return {
+    style,
+    source: String(payload.source || "brain-nutrient-map-web").slice(0, 80),
+    state
+  };
+}
+
 function sanitizeState(input) {
   const flags = Array.isArray(input.flags)
     ? input.flags.map((item) => String(item).slice(0, 40)).slice(0, 8)
@@ -127,6 +171,20 @@ function sanitizeState(input) {
     userNote: String(input.userNote || "").trim().slice(0, 240),
     localSummary: String(input.localSummary || "").slice(0, 500),
     localActions: actions
+  };
+}
+
+function sanitizeImageState(input) {
+  const flags = Array.isArray(input.flags)
+    ? input.flags.map((item) => String(item).slice(0, 40)).slice(0, 6)
+    : [];
+
+  return {
+    concern: String(input.concern || "").slice(0, 60),
+    ageBand: String(input.ageBand || "").slice(0, 30),
+    roleType: String(input.roleType || "").slice(0, 40),
+    mushroomMealsPerWeek: clampNumber(input.mushroomMealsPerWeek, 0, 7),
+    flags
   };
 }
 
@@ -156,6 +214,22 @@ async function enforcePreviewLimit(request, env) {
   const count = Number(await env.BRAIN_REPORT_LIMITS.get(key) || "0");
   if (count >= limit) {
     throw publicError(429, "今天的免费 AI 摘要次数已用完，可以明天再试或使用付费兑换码。");
+  }
+  await env.BRAIN_REPORT_LIMITS.put(key, String(count + 1), { expirationTtl: 60 * 60 * 30 });
+}
+
+async function enforceImageLimit(request, env) {
+  if (!env.BRAIN_REPORT_LIMITS) return;
+
+  const limit = Number(env.IMAGE_DAILY_LIMIT || 2);
+  if (!Number.isFinite(limit) || limit <= 0) return;
+
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `image:${today}:${ip}`;
+  const count = Number(await env.BRAIN_REPORT_LIMITS.get(key) || "0");
+  if (count >= limit) {
+    throw publicError(429, "今天的 AI 配图次数已用完，可以明天再试。");
   }
   await env.BRAIN_REPORT_LIMITS.put(key, String(count + 1), { expirationTtl: 60 * 60 * 30 });
 }
@@ -292,6 +366,145 @@ async function callAnthropic(env, prompt, mode) {
   }
 
   return text;
+}
+
+async function callImageApi(env, payload) {
+  const apiKey = env.IMAGE_API_KEY;
+  if (!apiKey) {
+    throw publicError(503, "AI 配图服务密钥未配置。");
+  }
+
+  const response = await fetch(env.IMAGE_API_URL || "https://sapi.micosoft.icu/v1/images/generations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: env.IMAGE_MODEL || "gpt-image-2",
+      prompt: buildImagePrompt(payload),
+      size: env.IMAGE_SIZE || "1024x1024",
+      quality: env.IMAGE_QUALITY || "auto",
+      output_format: "png",
+      response_format: "b64_json"
+    })
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    console.error("Image API error", response.status, detail.slice(0, 500));
+    throw publicError(502, "AI 配图服务暂时不可用，请稍后重试。");
+  }
+
+  const data = await response.json();
+  const b64 = findImageBase64(data);
+  const url = findImageUrl(data);
+  if (!b64) {
+    if (url) {
+      return {
+        image: url,
+        caption: imageCaption(payload.style)
+      };
+    }
+    console.error("Image API returned no image fields", JSON.stringify(listJsonShape(data)).slice(0, 500));
+    throw publicError(502, "AI 配图服务没有返回图片。");
+  }
+
+  return {
+    image: b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`,
+    caption: imageCaption(payload.style)
+  };
+}
+
+function findImageBase64(value) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const compact = value.trim();
+    if (compact.startsWith("data:image/")) return compact;
+    if (compact.length > 1000 && /^[A-Za-z0-9+/=]+$/.test(compact.slice(0, 200))) return compact;
+    return "";
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findImageBase64(item);
+      if (found) return found;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    for (const key of ["b64_json", "base64", "image", "data"]) {
+      const found = findImageBase64(value[key]);
+      if (found) return found;
+    }
+    for (const item of Object.values(value)) {
+      const found = findImageBase64(item);
+      if (found) return found;
+    }
+  }
+  return "";
+}
+
+function findImageUrl(value) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    return /^https?:\/\/.+\.(png|jpg|jpeg|webp)(\?.*)?$/i.test(value) ? value : "";
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findImageUrl(item);
+      if (found) return found;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    for (const key of ["url", "image_url", "output_url"]) {
+      const found = findImageUrl(value[key]);
+      if (found) return found;
+    }
+    for (const item of Object.values(value)) {
+      const found = findImageUrl(item);
+      if (found) return found;
+    }
+  }
+  return "";
+}
+
+function listJsonShape(value) {
+  if (!value || typeof value !== "object") return typeof value;
+  if (Array.isArray(value)) return value.slice(0, 2).map(listJsonShape);
+  const output = {};
+  for (const [key, child] of Object.entries(value).slice(0, 12)) {
+    output[key] = child && typeof child === "object" ? listJsonShape(child) : typeof child;
+  }
+  return output;
+}
+
+function buildImagePrompt(payload) {
+  const { style, state } = payload;
+  const base = [
+    "Create a warm, bright, realistic editorial lifestyle cover image for a Chinese brain-health self-reflection report.",
+    "No text, no letters, no logo, no watermark, no medical diagnosis symbols, no pills, no supplement bottle, no hospital, no brain scan.",
+    "Use natural daylight, calm green and soft cream tones, clean composition, premium but approachable health magazine style.",
+    "Include everyday food and lifestyle cues: shiitake or oyster mushrooms, oats, vegetables, a notebook for sleep and memory notes, a glass of water, a phone placed face down.",
+    `User context: concern is ${state.concern}, age band ${state.ageBand}, role is ${state.roleType}, mushroom meals per week ${state.mushroomMealsPerWeek}, flags: ${state.flags.join(", ") || "none"}.`,
+    "The image should suggest gentle self-review and family care, not fear, disease, or miracle cures."
+  ];
+
+  const styleLine = {
+    report: "Composition: horizontal report cover, a calm desk or breakfast table scene with notebook and healthy foods, space for website overlay text outside the generated image.",
+    parent: "Composition: an adult child and an older parent at a bright kitchen table, gently reviewing a notebook together, caring and calm, no sadness or clinical atmosphere.",
+    social: "Composition: square social media cover image, top-down clean table layout, visually attractive first image for Xiaohongshu or WeChat Moments, with strong focal point and no written words."
+  }[style] || "";
+
+  return `${base.join(" ")} ${styleLine}`;
+}
+
+function imageCaption(style) {
+  return {
+    report: "报告封面图已生成：适合放在详细报告开头，承接后面的文字解读。",
+    parent: "父母沟通图已生成：适合搭配温和话术发给家人，不制造焦虑。",
+    social: "社交封面图已生成：适合做小红书/朋友圈首图，再配合报告摘要。"
+  }[style] || "AI 配图已生成。";
 }
 
 function publicError(status, publicMessage) {

@@ -96,6 +96,7 @@ a {
 
 .nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   color: var(--muted);
   font-size: 14px;
@@ -200,6 +201,7 @@ h3 {
 .control-panel,
 .result-panel,
 .report-actions article,
+.visual-output,
 .report-output,
 .food-card,
 .evidence-grid article,
@@ -451,20 +453,86 @@ canvas {
 }
 
 .report-actions article,
+.visual-output,
 .report-output {
   padding: 16px;
   box-shadow: none;
 }
 
 .report-actions p,
+.visual-output p,
 .report-output p,
 .report-output li {
   color: var(--muted);
   font-size: 14px;
 }
 
+.report-results {
+  display: grid;
+  gap: 14px;
+}
+
 .report-output {
   min-height: 310px;
+}
+
+.visual-output {
+  min-height: 280px;
+}
+
+.visual-style {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 12px 0;
+}
+
+.visual-actions {
+  margin-top: 10px;
+}
+
+.image-frame {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(238, 244, 237, 0.92), rgba(247, 242, 232, 0.92)),
+    radial-gradient(circle at 20% 20%, rgba(47, 125, 73, 0.18), transparent 30%);
+}
+
+.image-placeholder {
+  display: grid;
+  gap: 8px;
+  max-width: 360px;
+  padding: 24px;
+  text-align: center;
+}
+
+.image-placeholder strong {
+  font-size: 18px;
+}
+
+.image-placeholder span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.error-text {
+  color: #9a3412;
+}
+
+#generatedImage {
+  display: block;
+  width: 100%;
+  max-height: 440px;
+  object-fit: cover;
+}
+
+#imageCaption {
+  margin: 10px 0 0;
+  font-size: 13px;
 }
 
 .report-output h3,

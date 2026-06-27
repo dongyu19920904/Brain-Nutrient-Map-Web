@@ -8,6 +8,10 @@ ANTHROPIC_API_URL = "https://cloudcode.bdjd.cc"
 DEFAULT_ANTHROPIC_MODEL = "claude-opus-4-6"
 ALLOWED_ORIGINS = "https://dongyu19920904.github.io,https://yuyu.aivora.cn,https://brain.aivora.cn,http://127.0.0.1:8787,http://localhost:8787"
 PREVIEW_DAILY_LIMIT = "10"
+IMAGE_API_URL = "https://sapi.micosoft.icu/v1/images/generations"
+IMAGE_MODEL = "gpt-image-2"
+IMAGE_SIZE = "1024x1024"
+IMAGE_DAILY_LIMIT = "5"
 
 [[kv_namespaces]]
 binding = "BRAIN_REPORT_CODES"

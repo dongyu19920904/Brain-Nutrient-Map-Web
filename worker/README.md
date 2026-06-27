@@ -26,6 +26,7 @@ The frontend calls:
 
 ```text
 POST /api/report
+POST /api/image
 ```
 
 Modes:
@@ -41,4 +42,5 @@ Optional KV bindings:
 Optional secrets:
 
 - `ANTHROPIC_API_KEY`: required model API key.
+- `IMAGE_API_KEY`: required image generation API key.
 - `AUTHOR_ACCESS_CODES`: comma-separated reusable author/test codes. These codes are checked before one-time KV codes and are never marked as used.

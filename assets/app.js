@@ -92,8 +92,10 @@ const flagLabels = {
 };
 
 let activeFilter = "all";
+let activeVisualStyle = "report";
 let latestShareText = "";
 let latestLocalSummary = "";
+let latestGeneratedImage = "";
 
 const $ = (id) => document.getElementById(id);
 
@@ -120,11 +122,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  for (const button of document.querySelectorAll("[data-visual-style]")) {
+    button.addEventListener("click", () => {
+      activeVisualStyle = button.dataset.visualStyle;
+      document.querySelectorAll("[data-visual-style]").forEach((item) => item.classList.toggle("active", item === button));
+      updateImageCaption();
+    });
+  }
+
   $("copyShareBtn").addEventListener("click", copyShareText);
   $("copyOfferBtn").addEventListener("click", copyOfferText);
   $("downloadCardBtn").addEventListener("click", downloadCard);
   $("generatePreviewBtn").addEventListener("click", () => generateAiReport("preview"));
   $("generatePaidBtn").addEventListener("click", () => generateAiReport("paid"));
+  $("generateImageBtn").addEventListener("click", generateAiImage);
+  $("downloadImageBtn").addEventListener("click", downloadGeneratedImage);
 });
 
 function getState() {
@@ -272,6 +284,90 @@ function toggleReportButtons(disabled) {
 function renderMarkdownReport(markdown, mode) {
   const label = mode === "paid" ? "详细报告" : "免费摘要";
   $("reportOutput").innerHTML = `<span class="status">${label}已生成</span>${markdownToHtml(markdown)}`;
+}
+
+async function generateAiImage() {
+  updateAll();
+  const state = getState();
+  const concern = concerns[state.concern];
+
+  setImageMessage("正在生成 AI 配图，通常需要 30-90 秒...");
+  toggleImageButtons(true);
+
+  let timer;
+  try {
+    const controller = new AbortController();
+    timer = setTimeout(() => controller.abort(), 120000);
+    const response = await fetch(`${REPORT_API_BASE}/api/image`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        style: activeVisualStyle,
+        source: "brain-nutrient-map-web",
+        state: {
+          concern: concern.title,
+          ageBand: state.ageBand,
+          roleType: roleLabel(state.roleType),
+          mushroomMealsPerWeek: state.meals,
+          flags: state.flags.map((flag) => flagLabels[flag])
+        }
+      })
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || "AI 配图生成失败，请稍后重试。");
+    }
+
+    latestGeneratedImage = data.image;
+    $("generatedImage").src = data.image;
+    $("generatedImage").hidden = false;
+    $("imagePlaceholder").hidden = true;
+    $("downloadImageBtn").disabled = false;
+    updateImageCaption(data.caption || "配图已生成，可作为报告封面或社交平台首图。");
+  } catch (error) {
+    const message = error.name === "AbortError"
+      ? "AI 配图响应超时，请稍后重试。"
+      : error.message || "AI 配图生成失败，请稍后重试。";
+    setImageMessage(message, true);
+  } finally {
+    clearTimeout(timer);
+    toggleImageButtons(false);
+  }
+}
+
+function setImageMessage(message, isError = false) {
+  $("generatedImage").hidden = true;
+  $("imagePlaceholder").hidden = false;
+  $("imagePlaceholder").innerHTML = `<strong class="${isError ? "error-text" : ""}">${escapeHtml(message)}</strong><span>图片不包含文字和医学结论，只作为报告封面/传播配图。</span>`;
+  $("downloadImageBtn").disabled = true;
+}
+
+function toggleImageButtons(disabled) {
+  $("generateImageBtn").disabled = disabled;
+  if (!latestGeneratedImage) {
+    $("downloadImageBtn").disabled = true;
+  } else {
+    $("downloadImageBtn").disabled = disabled;
+  }
+}
+
+function updateImageCaption(customText) {
+  const labels = {
+    report: "推荐用途：放在详细报告开头，作为“脑健康生活方式复盘”的封面。",
+    parent: "推荐用途：发给家人前先缓和语气，用温和画面降低沟通压力。",
+    social: "推荐用途：作为小红书/朋友圈首图，再配合文字报告摘要。"
+  };
+  $("imageCaption").textContent = customText || labels[activeVisualStyle] || labels.report;
+}
+
+function downloadGeneratedImage() {
+  if (!latestGeneratedImage) return;
+  const link = document.createElement("a");
+  link.download = `brain-health-visual-${activeVisualStyle}.png`;
+  link.href = latestGeneratedImage;
+  link.click();
 }
 
 function markdownToHtml(markdown) {

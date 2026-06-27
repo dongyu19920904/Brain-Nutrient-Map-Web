@@ -21,6 +21,7 @@
       <nav class="nav" aria-label="主导航">
         <a href="#tool">工具</a>
         <a href="#ai-report">AI 报告</a>
+        <a href="#ai-visual">AI 配图</a>
         <a href="#evidence">证据</a>
         <a href="#offer">资料包</a>
       </nav>
@@ -150,11 +151,37 @@
                 <button type="button" class="ghost-button" id="generatePaidBtn">生成详细报告</button>
               </div>
             </article>
+            <article id="ai-visual">
+              <h3>AI 报告配图</h3>
+              <p>生成一张无文字的生活方式封面图，适合放在报告顶部、小红书封面或朋友圈配图。</p>
+              <div class="segmented visual-style" role="group" aria-label="配图类型">
+                <button type="button" data-visual-style="report" class="active">报告封面</button>
+                <button type="button" data-visual-style="parent">父母沟通</button>
+                <button type="button" data-visual-style="social">小红书</button>
+              </div>
+              <div class="actions visual-actions">
+                <button type="button" class="primary-button" id="generateImageBtn">生成 AI 配图</button>
+                <button type="button" class="ghost-button" id="downloadImageBtn" disabled>下载配图 PNG</button>
+              </div>
+              <p class="fine-print">配图只做报告封面和传播素材，不承载医学结论；正式结论以文字报告为准。</p>
+            </article>
           </div>
-          <article class="report-output" id="reportOutput" aria-live="polite">
-            <h3>AI 报告会显示在这里</h3>
-            <p>建议先填写上面的“最近最困扰我的一句话”，报告会更像在解决真实问题，而不是泛泛科普。</p>
-          </article>
+          <div class="report-results">
+            <article class="visual-output" aria-live="polite">
+              <div class="image-frame">
+                <div class="image-placeholder" id="imagePlaceholder">
+                  <strong>还没有生成配图</strong>
+                  <span>建议先选择关注点和使用场景，再生成更贴近报告的封面图。</span>
+                </div>
+                <img id="generatedImage" alt="AI 生成的脑健康生活方式报告配图" hidden>
+              </div>
+              <p id="imageCaption">推荐用途：放在详细报告开头，或作为小红书/朋友圈的第一张图。</p>
+            </article>
+            <article class="report-output" id="reportOutput" aria-live="polite">
+              <h3>AI 报告会显示在这里</h3>
+              <p>建议先填写上面的“最近最困扰我的一句话”，报告会更像在解决真实问题，而不是泛泛科普。</p>
+            </article>
+          </div>
         </div>
       </section>
 
