@@ -97,7 +97,6 @@ let latestShareText = "";
 let latestLocalSummary = "";
 let latestGeneratedReport = "";
 let latestGeneratedImage = "";
-let latestVisualBrief = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -275,7 +274,6 @@ async function generateAiReport(mode) {
 async function generateReportWithVisual() {
   latestGeneratedReport = "";
   latestGeneratedImage = "";
-  latestVisualBrief = null;
   setReportMessage("正在生成完整 AI 报告，完成后会自动生成图文海报...");
   setImageMessage("等待报告完成，随后会按报告内容写生图提示词并生成图文海报。");
   toggleReportButtons(true);
@@ -390,42 +388,11 @@ async function requestAiImage(report, signal) {
 
 function renderGeneratedVisual(data) {
   latestGeneratedImage = data.image;
-  latestVisualBrief = normalizeVisualBrief(data.visual);
   $("generatedImage").src = data.image;
   $("imagePlaceholder").hidden = true;
   $("visualPoster").hidden = false;
-  renderPosterText(latestVisualBrief);
   $("downloadImageBtn").disabled = false;
-  updateImageCaption(data.caption || "图文海报已生成：图片来自 AI，文字来自报告要点提炼，可下载后发给家人或用于朋友圈/小红书测试。");
-}
-
-function normalizeVisualBrief(visual) {
-  const fallback = {
-    kicker: "AI 脑健康复盘",
-    title: "脑健康生活方式复盘",
-    conclusion: "先用 7 天记录睡眠、压力、饮食和记忆变化，再决定是否需要进一步咨询医生。",
-    bullets: ["记录 7 天睡眠和压力", "每周增加 1-2 次菌菇类食物", "症状明显或加重时咨询医生"],
-    footer: "健康信息整理，不替代医生诊断。"
-  };
-  if (!visual || typeof visual !== "object") return fallback;
-  const bullets = Array.isArray(visual.bullets)
-    ? visual.bullets.map((item) => String(item).trim()).filter(Boolean).slice(0, 3)
-    : [];
-  return {
-    kicker: String(visual.kicker || fallback.kicker).slice(0, 18),
-    title: String(visual.title || fallback.title).slice(0, 28),
-    conclusion: String(visual.conclusion || fallback.conclusion).slice(0, 86),
-    bullets: bullets.length ? bullets : fallback.bullets,
-    footer: String(visual.footer || fallback.footer).slice(0, 32)
-  };
-}
-
-function renderPosterText(visual) {
-  $("posterKicker").textContent = visual.kicker;
-  $("posterTitle").textContent = visual.title;
-  $("posterConclusion").textContent = visual.conclusion;
-  $("posterBullets").innerHTML = visual.bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
-  $("posterFooter").textContent = visual.footer;
+  updateImageCaption(data.caption || "图文海报已生成：图片中的标题、结论和行动点由画图 AI 直接生成，可下载后发给家人或用于朋友圈/小红书测试。");
 }
 
 function setImageMessage(message, isError = false) {
@@ -446,26 +413,16 @@ function toggleImageButtons(disabled) {
 
 function updateImageCaption(customText) {
   const labels = {
-    report: "推荐用途：放在详细报告开头，作为“脑健康生活方式复盘”的图文封面。",
-    parent: "推荐用途：发给家人前先缓和语气，用温和画面和行动点降低沟通压力。",
-    social: "推荐用途：作为小红书/朋友圈首图，标题、结论和行动点已经叠加在海报里。"
+    report: "推荐用途：放在详细报告开头，作为“脑健康生活方式复盘”的完整图文封面。",
+    parent: "推荐用途：发给家人前先缓和语气，用带文字的温和海报降低沟通压力。",
+    social: "推荐用途：作为小红书/朋友圈首图，图片里已经包含标题、结论和行动点。"
   };
   $("imageCaption").textContent = customText || labels[activeVisualStyle] || labels.report;
 }
 
-async function downloadGeneratedImage() {
+function downloadGeneratedImage() {
   if (!latestGeneratedImage) return;
-  if (latestVisualBrief) {
-    try {
-      const poster = await composePosterImage(latestGeneratedImage, latestVisualBrief);
-      downloadDataUrl(poster, `brain-health-report-poster-${activeVisualStyle}.png`);
-      return;
-    } catch {
-      downloadDataUrl(latestGeneratedImage, `brain-health-visual-${activeVisualStyle}.png`);
-      return;
-    }
-  }
-  downloadDataUrl(latestGeneratedImage, `brain-health-visual-${activeVisualStyle}.png`);
+  downloadDataUrl(latestGeneratedImage, `brain-health-ai-text-poster-${activeVisualStyle}.png`);
 }
 
 function downloadDataUrl(dataUrl, filename) {
@@ -473,105 +430,6 @@ function downloadDataUrl(dataUrl, filename) {
   link.download = filename;
   link.href = dataUrl;
   link.click();
-}
-
-async function composePosterImage(imageUrl, visual) {
-  const width = 1080;
-  const height = 1350;
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  const image = await loadImage(imageUrl);
-
-  drawImageCover(ctx, image, 0, 0, width, height);
-
-  const gradient = ctx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, "rgba(16, 35, 27, 0.06)");
-  gradient.addColorStop(0.42, "rgba(16, 35, 27, 0.18)");
-  gradient.addColorStop(1, "rgba(16, 35, 27, 0.70)");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = "rgba(255, 255, 255, 0.90)";
-  roundRect(ctx, 76, 760, width - 152, 470, 34);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(215, 224, 216, 0.92)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  ctx.fillStyle = "#2f7d49";
-  roundRect(ctx, 112, 798, 260, 48, 24);
-  ctx.fill();
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "800 24px sans-serif";
-  ctx.fillText(visual.kicker, 138, 830);
-
-  ctx.fillStyle = "#18231f";
-  ctx.font = "900 54px sans-serif";
-  let y = wrapPosterText(ctx, visual.title, 112, 910, 820, 64, 2);
-
-  ctx.fillStyle = "#45534d";
-  ctx.font = "700 30px sans-serif";
-  y = wrapPosterText(ctx, visual.conclusion, 112, y + 22, 820, 42, 3);
-
-  y += 18;
-  ctx.font = "800 28px sans-serif";
-  for (const item of visual.bullets.slice(0, 3)) {
-    ctx.fillStyle = "#2f7d49";
-    ctx.beginPath();
-    ctx.arc(126, y - 10, 9, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#18231f";
-    y = wrapPosterText(ctx, item, 152, y, 780, 38, 2) + 8;
-  }
-
-  ctx.fillStyle = "#64716b";
-  ctx.font = "700 22px sans-serif";
-  ctx.fillText(visual.footer, 112, 1196);
-  return canvas.toDataURL("image/png");
-}
-
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = src;
-  });
-}
-
-function drawImageCover(ctx, image, x, y, width, height) {
-  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
-  const drawWidth = image.naturalWidth * scale;
-  const drawHeight = image.naturalHeight * scale;
-  const drawX = x + (width - drawWidth) / 2;
-  const drawY = y + (height - drawHeight) / 2;
-  ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
-}
-
-function wrapPosterText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
-  const chars = Array.from(String(text || ""));
-  let line = "";
-  let lines = 0;
-  for (const char of chars) {
-    const test = line + char;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      lines += 1;
-      if (lines >= maxLines) {
-        ctx.fillText(`${line.slice(0, Math.max(0, line.length - 1))}…`, x, y);
-        return y + lineHeight;
-      }
-      ctx.fillText(line, x, y);
-      line = char;
-      y += lineHeight;
-    } else {
-      line = test;
-    }
-  }
-  if (line) ctx.fillText(line, x, y);
-  return y + lineHeight;
 }
 
 function markdownToHtml(markdown) {

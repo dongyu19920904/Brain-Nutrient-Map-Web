@@ -510,13 +510,14 @@ async function buildVisualBrief(env, payload) {
 
 function buildVisualBriefPrompt(payload) {
   const { state, report, style } = payload;
-  return `你是一名中文健康科普图文海报策划。请根据完整报告，提炼一张图文海报所需的信息，并写出给图片生成模型使用的英文提示词。
+  return `你是一名中文健康科普图文海报策划。请根据完整报告，提炼一张需要由画图 AI 直接生成的中文图文海报。
 
 要求：
 1. 只输出 JSON，不要 Markdown，不要代码块。
-2. 中文文字要短，适合叠加在海报上。
+2. 中文文字要短，但信息要完整，适合直接画进海报里。
 3. 不要写“预防痴呆”“治疗”“逆转”“补充剂剂量”等医疗承诺。
-4. imagePrompt 用英文，要求图片模型生成“可叠加中文文字的信息图式生活方式背景”，不要让图片模型直接生成可读文字。
+4. imagePrompt 要明确要求画图 AI 直接生成带中文文字的成品海报，包含标题、结论、3 个行动点和底部声明。
+5. imagePrompt 可以中英混合，但必须把中文文案逐字列出来，要求文字清晰、无错别字、排版有层次。
 
 JSON 格式：
 {
@@ -525,7 +526,7 @@ JSON 格式：
   "conclusion": "不超过 46 个中文字的一句话结论",
   "bullets": ["行动点1，不超过18字", "行动点2，不超过18字", "行动点3，不超过18字"],
   "footer": "健康信息整理，不替代医生诊断。",
-  "imagePrompt": "English image generation prompt"
+  "imagePrompt": "Prompt for image model to generate the final Chinese text poster"
 }
 
 用户场景：
@@ -564,7 +565,7 @@ function normalizeVisualBrief(input, fallback) {
     conclusion: String(input.conclusion || fallback.conclusion).slice(0, 90),
     bullets: bullets.length ? bullets : fallback.bullets,
     footer: String(input.footer || fallback.footer).slice(0, 36),
-    imagePrompt: String(input.imagePrompt || fallback.imagePrompt).slice(0, 1400)
+    imagePrompt: String(input.imagePrompt || fallback.imagePrompt).slice(0, 2200)
   };
 }
 
@@ -581,17 +582,27 @@ function fallbackVisualBrief(payload) {
     conclusion: "先做低风险生活方式记录，再决定是否需要进一步咨询医生。",
     bullets: actions.map((item) => String(item).slice(0, 22)),
     footer: "健康信息整理，不替代医生诊断。",
-    imagePrompt: `Create a warm Chinese health magazine infographic background for a brain-health self-review poster. Style: ${style}. Use natural daylight, calm green, warm white, notebook, mushrooms, oats, vegetables, water glass, soft family-care mood. Leave clean translucent space for Chinese text overlay. No readable text, no logo, no watermark, no pills, no supplement bottle, no hospital, no brain scan, no medical diagnosis symbols.`
+    imagePrompt: `Create a finished Chinese text-rich health infographic poster, style: ${style}. The poster itself must include clear readable Simplified Chinese typography. Use these exact text blocks: kicker「AI 脑健康复盘」, title「${title}」, conclusion「先做低风险生活方式记录，再决定是否需要进一步咨询医生。」, bullets「${actions.map((item) => String(item).slice(0, 22)).join("」「")}」, footer「健康信息整理，不替代医生诊断。」. Warm Chinese health magazine design, natural daylight, calm green and warm white, notebook, mushrooms, oats, vegetables, water glass, soft family-care mood. No logo, no watermark, no pills, no supplement bottle, no hospital, no brain scan, no medical diagnosis symbols.`
   };
 }
 
 function buildImagePrompt(payload) {
   const { style, state } = payload;
   const visual = payload.visual || fallbackVisualBrief(payload);
+  const textBlocks = [
+    `Kicker: ${visual.kicker}`,
+    `Title: ${visual.title}`,
+    `Conclusion: ${visual.conclusion}`,
+    ...visual.bullets.slice(0, 3).map((item, index) => `Action ${index + 1}: ${item}`),
+    `Footer: ${visual.footer}`
+  ];
   const base = [
     visual.imagePrompt,
-    "The final page will overlay Chinese text separately, so the generated image must contain no readable text, no letters, no logo, and no watermark.",
-    "Create a polished infographic-poster background with clear visual hierarchy, gentle lifestyle photography or editorial illustration, and enough quiet space for text panels.",
+    "Generate the final poster image itself with rich, readable Simplified Chinese text. Do not leave blank text boxes for later overlay.",
+    `Use these exact Chinese text blocks and keep them legible: ${textBlocks.join(" | ")}.`,
+    "Use a polished health-magazine infographic layout: clear title area, short conclusion card, three action cards, and footer disclaimer.",
+    "Chinese typography must be clean and large enough to read on a phone screen. Avoid garbled characters, pseudo text, random letters, or extra claims.",
+    "No logo, no watermark.",
     "No medical diagnosis symbols, no pills, no supplement bottle, no hospital, no brain scan.",
     "Include everyday food and lifestyle cues only when natural: shiitake or oyster mushrooms, oats, vegetables, a notebook for sleep and memory notes, a glass of water, a phone placed face down.",
     `User context: concern is ${state.concern}, age band ${state.ageBand}, role is ${state.roleType}, mushroom meals per week ${state.mushroomMealsPerWeek}, flags: ${state.flags.join(", ") || "none"}.`,
@@ -599,9 +610,9 @@ function buildImagePrompt(payload) {
   ];
 
   const styleLine = {
-    report: "Composition: square-to-portrait report poster background, calm desk or breakfast table scene, large quiet lower area for overlay text.",
-    parent: "Composition: adult child and older parent at a bright kitchen table, gently reviewing a notebook together, caring and calm, with quiet lower area for overlay text.",
-    social: "Composition: square social media poster background, top-down clean table layout, visually attractive first image for Xiaohongshu or WeChat Moments, strong focal point, quiet lower area for overlay text."
+    report: "Composition: finished report-cover poster, calm desk or breakfast table scene, text panels integrated into the design.",
+    parent: "Composition: finished family-communication poster, adult child and older parent at a bright kitchen table, text panels integrated into the design.",
+    social: "Composition: finished square Xiaohongshu/WeChat Moments poster, top-down clean table layout, strong focal point, text panels integrated into the design."
   }[style] || "";
 
   return `${base.join(" ")} ${styleLine}`;
@@ -610,9 +621,9 @@ function buildImagePrompt(payload) {
 function imageCaption(style, basedOnReport = false) {
   if (basedOnReport) {
     return {
-      report: "图文海报已生成：文字来自报告要点，图片来自 AI，可放在详细报告开头。",
-      parent: "图文海报已生成：适合搭配温和话术发给家人，不制造焦虑。",
-      social: "图文海报已生成：适合做小红书/朋友圈首图，先测点击和收藏。"
+      report: "图文海报已生成：画图 AI 已直接把报告标题、结论和行动点做进图片里。",
+      parent: "图文海报已生成：图片自带温和说明文字，适合发给家人讨论。",
+      social: "图文海报已生成：图片自带标题和行动点，适合做小红书/朋友圈首图。"
     }[style] || "图文海报已生成。";
   }
   return {
