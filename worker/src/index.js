@@ -7,7 +7,7 @@ const SYSTEM_PROMPT = `你是一名中文脑健康生活方式解读助手，服
 4. 不推荐用户购买补充剂，不给剂量，不给用药建议，不评价激素治疗是否适合。
 5. 如果用户提到症状明显、进展加快、影响生活、头痛眩晕、突然认知变化、慢病治疗中、正在服药或照护老人，应建议带记录咨询合格医生。
 6. 建议必须具体、低风险、能在 7 天内执行，围绕饮食结构、睡眠、压力、运动、记录和就医复核。
-7. 语气要克制、温和、可交付，像一份 19.9 元小报告，不要像广告。`;
+7. 语气要克制、温和、可交付，像一份可保存的小报告，不要像广告。`;
 
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://dongyu19920904.github.io",
@@ -213,7 +213,7 @@ async function enforcePreviewLimit(request, env) {
   const key = `preview:${today}:${ip}`;
   const count = Number(await env.BRAIN_REPORT_LIMITS.get(key) || "0");
   if (count >= limit) {
-    throw publicError(429, "今天的免费 AI 摘要次数已用完，可以明天再试或使用付费兑换码。");
+    throw publicError(429, "今天的免费 AI 摘要次数已用完，可以明天再试，或直接生成完整 AI 报告。");
   }
   await env.BRAIN_REPORT_LIMITS.put(key, String(count + 1), { expirationTtl: 60 * 60 * 30 });
 }
@@ -235,11 +235,11 @@ async function enforceImageLimit(request, env) {
 }
 
 async function validateAccessCode(env, accessCode) {
+  if (env.REPORT_MODE === "open") return { type: "open" };
+
   if (!accessCode) {
     throw publicError(400, "请先输入购买后获得的报告兑换码。");
   }
-
-  if (env.REPORT_MODE === "open") return { type: "open" };
 
   const authorCodes = String(env.AUTHOR_ACCESS_CODES || "")
     .split(",")
@@ -310,7 +310,7 @@ function buildUserPrompt(payload) {
 - 什么时候应该咨询医生
 - 非医疗声明`;
 
-  return `请根据下面的用户输入，生成${mode === "paid" ? "付费详细版" : "免费短版"}脑健康生活方式解读。
+  return `请根据下面的用户输入，生成${mode === "paid" ? "完整详细版" : "免费短版"}脑健康生活方式解读。
 
 【用户输入】
 ${JSON.stringify(state, null, 2)}

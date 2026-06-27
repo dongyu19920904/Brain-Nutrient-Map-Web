@@ -9,12 +9,17 @@ Do not put API keys in frontend code, GitHub Pages, README files, or committed c
 ```bash
 cd worker
 wrangler secret put ANTHROPIC_API_KEY
+wrangler secret put IMAGE_API_KEY
 wrangler deploy
 ```
 
-## Create report codes
+## Open beta and report codes
 
-Create one-time paid report codes in KV:
+Current beta mode uses `REPORT_MODE=open`, so detailed reports can be generated without an access code while the product experience is being tested.
+
+When the flow is stable, remove `REPORT_MODE=open` from `wrangler.toml` and create one-time paid report codes in KV.
+
+Create a paid report code:
 
 ```bash
 wrangler kv key put code:BRAIN-XXXX "{\"createdAt\":\"2026-06-27T00:00:00Z\",\"source\":\"aivora-card\"}" --binding BRAIN_REPORT_CODES --remote
@@ -32,7 +37,7 @@ POST /api/image
 Modes:
 
 - `preview`: free short AI summary.
-- `paid`: detailed report, requiring a report access code unless `REPORT_MODE=open` is configured for testing.
+- `paid`: detailed report. In beta with `REPORT_MODE=open`, no report access code is required.
 
 Optional KV bindings:
 

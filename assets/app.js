@@ -212,12 +212,8 @@ async function generateAiReport(mode) {
   updateAll();
   const state = getState();
   const concern = concerns[state.concern];
-  const accessCode = $("accessCode").value.trim();
-
-  if (mode === "paid" && !accessCode) {
-    setReportMessage("请先输入购买后获得的报告兑换码。", true);
-    return;
-  }
+  const accessCodeInput = $("accessCode");
+  const accessCode = accessCodeInput ? accessCodeInput.value.trim() : "";
 
   setReportMessage(mode === "paid" ? "正在生成详细 AI 报告，通常需要 20-60 秒..." : "正在生成免费 AI 摘要...");
   toggleReportButtons(true);
