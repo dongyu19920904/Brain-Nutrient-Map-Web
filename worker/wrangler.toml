@@ -12,7 +12,7 @@ REPORT_MODE = "open"
 IMAGE_API_URL = "https://sapi.micosoft.icu/v1/images/generations"
 IMAGE_MODEL = "gpt-image-2"
 IMAGE_SIZE = "1024x1024"
-IMAGE_DAILY_LIMIT = "5"
+IMAGE_DAILY_LIMIT = "20"
 
 [[kv_namespaces]]
 binding = "BRAIN_REPORT_CODES"

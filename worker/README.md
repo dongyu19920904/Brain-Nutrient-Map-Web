@@ -34,6 +34,8 @@ POST /api/report
 POST /api/image
 ```
 
+The one-click frontend flow calls `/api/report` first, then sends the returned Markdown report into `/api/image`. When `report` is present, the Worker asks the text model to extract poster copy and an English image prompt before calling the image model.
+
 Modes:
 
 - `preview`: free short AI summary.

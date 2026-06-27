@@ -21,7 +21,7 @@
       <nav class="nav" aria-label="主导航">
         <a href="#tool">工具</a>
         <a href="#ai-report">AI 报告</a>
-        <a href="#ai-visual">AI 配图</a>
+        <a href="#ai-visual">AI 海报</a>
         <a href="#evidence">证据</a>
         <a href="#offer">资料包</a>
       </nav>
@@ -144,36 +144,45 @@
               <button type="button" class="primary-button" id="generatePreviewBtn">生成免费 AI 摘要</button>
             </article>
             <article>
-              <h3>完整 AI 详细报告</h3>
-              <p>测试阶段无需兑换码，直接生成更完整的 Markdown 报告，可复制保存或发给家人讨论。</p>
+              <h3>一键图文报告</h3>
+              <p>测试阶段无需兑换码。点击一次，先生成完整 Markdown 报告，再根据报告内容自动生成图文海报。</p>
               <div class="actions">
-                <button type="button" class="ghost-button" id="generatePaidBtn">生成完整 AI 报告</button>
+                <button type="button" class="ghost-button" id="generatePaidBtn">一键生成报告和图文海报</button>
               </div>
               <p class="fine-print">后续稳定后，再恢复 19.9 元资料包/兑换码限制。</p>
             </article>
             <article id="ai-visual">
-              <h3>AI 报告配图</h3>
-              <p>生成一张无文字的生活方式封面图，适合放在报告顶部、小红书封面或朋友圈配图。</p>
+              <h3>AI 图文海报</h3>
+              <p>海报会从报告里提炼标题、结论和 3 个行动点，再配合 AI 生成的生活方式场景图。</p>
               <div class="segmented visual-style" role="group" aria-label="配图类型">
                 <button type="button" data-visual-style="report" class="active">报告封面</button>
                 <button type="button" data-visual-style="parent">父母沟通</button>
                 <button type="button" data-visual-style="social">小红书</button>
               </div>
               <div class="actions visual-actions">
-                <button type="button" class="primary-button" id="generateImageBtn">生成 AI 配图</button>
-                <button type="button" class="ghost-button" id="downloadImageBtn" disabled>下载配图 PNG</button>
+                <button type="button" class="primary-button" id="generateImageBtn">重生成图文海报</button>
+                <button type="button" class="ghost-button" id="downloadImageBtn" disabled>下载图文海报 PNG</button>
               </div>
-              <p class="fine-print">配图只做报告封面和传播素材，不承载医学结论；正式结论以文字报告为准。</p>
+              <p class="fine-print">文字由报告提炼后叠加，避免生图模型把中文画错；正式结论仍以文字报告为准。</p>
             </article>
           </div>
           <div class="report-results">
             <article class="visual-output" aria-live="polite">
               <div class="image-frame">
                 <div class="image-placeholder" id="imagePlaceholder">
-                  <strong>还没有生成配图</strong>
-                  <span>建议先选择关注点和使用场景，再生成更贴近报告的封面图。</span>
+                  <strong>还没有生成图文海报</strong>
+                  <span>点击“一键生成报告和图文海报”，系统会先写报告，再按报告内容生成图片。</span>
                 </div>
-                <img id="generatedImage" alt="AI 生成的脑健康生活方式报告配图" hidden>
+                <div class="visual-poster" id="visualPoster" hidden>
+                  <img id="generatedImage" alt="AI 生成的脑健康生活方式报告图文海报">
+                  <div class="poster-overlay" aria-hidden="true">
+                    <span class="poster-kicker" id="posterKicker">AI 脑健康复盘</span>
+                    <h3 id="posterTitle">脑健康生活方式复盘</h3>
+                    <p id="posterConclusion">报告生成后，这里会展示一句话结论。</p>
+                    <ul id="posterBullets"></ul>
+                    <small id="posterFooter">健康信息整理，不替代医生诊断。</small>
+                  </div>
+                </div>
               </div>
               <p id="imageCaption">推荐用途：放在详细报告开头，或作为小红书/朋友圈的第一张图。</p>
             </article>
@@ -225,7 +234,7 @@
         <div>
           <p class="eyebrow">Monetization test</p>
           <h2>更清晰的变现路径</h2>
-          <p>当前先免费开放 AI 报告和配图，验证体验、质量和传播，再恢复 19.9 元兑换码限制。</p>
+          <p>当前先免费开放 AI 图文报告，验证体验、质量和传播，再恢复 19.9 元兑换码限制。</p>
         </div>
         <div class="offer-card">
           <strong>推荐商品雏形</strong>

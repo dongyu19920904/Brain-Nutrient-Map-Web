@@ -42,7 +42,9 @@ export default {
         return json({
           ok: true,
           image: result.image,
-          caption: result.caption
+          caption: result.caption,
+          visual: result.visual,
+          imagePrompt: result.prompt
         }, 200, cors);
       } catch (error) {
         const status = error.status || 500;
@@ -150,6 +152,7 @@ async function readImagePayload(request) {
   return {
     style,
     source: String(payload.source || "brain-nutrient-map-web").slice(0, 80),
+    report: String(payload.report || "").trim().slice(0, 7000),
     state
   };
 }
@@ -178,13 +181,19 @@ function sanitizeImageState(input) {
   const flags = Array.isArray(input.flags)
     ? input.flags.map((item) => String(item).slice(0, 40)).slice(0, 6)
     : [];
+  const actions = Array.isArray(input.localActions)
+    ? input.localActions.map((item) => String(item).slice(0, 80)).slice(0, 5)
+    : [];
 
   return {
     concern: String(input.concern || "").slice(0, 60),
     ageBand: String(input.ageBand || "").slice(0, 30),
     roleType: String(input.roleType || "").slice(0, 40),
     mushroomMealsPerWeek: clampNumber(input.mushroomMealsPerWeek, 0, 7),
-    flags
+    flags,
+    userNote: String(input.userNote || "").trim().slice(0, 240),
+    localSummary: String(input.localSummary || "").slice(0, 500),
+    localActions: actions
   };
 }
 
@@ -374,6 +383,9 @@ async function callImageApi(env, payload) {
     throw publicError(503, "AI 配图服务密钥未配置。");
   }
 
+  const visual = await buildVisualBrief(env, payload);
+  const prompt = buildImagePrompt({ ...payload, visual });
+
   const response = await fetch(env.IMAGE_API_URL || "https://sapi.micosoft.icu/v1/images/generations", {
     method: "POST",
     headers: {
@@ -382,7 +394,7 @@ async function callImageApi(env, payload) {
     },
     body: JSON.stringify({
       model: env.IMAGE_MODEL || "gpt-image-2",
-      prompt: buildImagePrompt(payload),
+      prompt,
       size: env.IMAGE_SIZE || "1024x1024",
       quality: env.IMAGE_QUALITY || "auto",
       output_format: "png",
@@ -403,7 +415,9 @@ async function callImageApi(env, payload) {
     if (url) {
       return {
         image: url,
-        caption: imageCaption(payload.style)
+        caption: imageCaption(payload.style, Boolean(payload.report)),
+        visual,
+        prompt
       };
     }
     console.error("Image API returned no image fields", JSON.stringify(listJsonShape(data)).slice(0, 500));
@@ -412,7 +426,9 @@ async function callImageApi(env, payload) {
 
   return {
     image: b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`,
-    caption: imageCaption(payload.style)
+    caption: imageCaption(payload.style, Boolean(payload.report)),
+    visual,
+    prompt
   };
 }
 
@@ -479,27 +495,126 @@ function listJsonShape(value) {
   return output;
 }
 
+async function buildVisualBrief(env, payload) {
+  const fallback = fallbackVisualBrief(payload);
+  if (!payload.report) return fallback;
+
+  try {
+    const raw = await callAnthropic(env, buildVisualBriefPrompt(payload), "preview");
+    return normalizeVisualBrief(parseJsonObject(raw), fallback);
+  } catch (error) {
+    console.error("Visual brief generation failed", error.message || error);
+    return fallback;
+  }
+}
+
+function buildVisualBriefPrompt(payload) {
+  const { state, report, style } = payload;
+  return `你是一名中文健康科普图文海报策划。请根据完整报告，提炼一张图文海报所需的信息，并写出给图片生成模型使用的英文提示词。
+
+要求：
+1. 只输出 JSON，不要 Markdown，不要代码块。
+2. 中文文字要短，适合叠加在海报上。
+3. 不要写“预防痴呆”“治疗”“逆转”“补充剂剂量”等医疗承诺。
+4. imagePrompt 用英文，要求图片模型生成“可叠加中文文字的信息图式生活方式背景”，不要让图片模型直接生成可读文字。
+
+JSON 格式：
+{
+  "kicker": "AI 脑健康复盘",
+  "title": "不超过 18 个中文字的海报标题",
+  "conclusion": "不超过 46 个中文字的一句话结论",
+  "bullets": ["行动点1，不超过18字", "行动点2，不超过18字", "行动点3，不超过18字"],
+  "footer": "健康信息整理，不替代医生诊断。",
+  "imagePrompt": "English image generation prompt"
+}
+
+用户场景：
+${JSON.stringify(state, null, 2)}
+
+海报类型：${style}
+
+完整报告：
+${report.slice(0, 5000)}`;
+}
+
+function parseJsonObject(text) {
+  const raw = String(text || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function normalizeVisualBrief(input, fallback) {
+  if (!input || typeof input !== "object") return fallback;
+  const bullets = Array.isArray(input.bullets)
+    ? input.bullets.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 3)
+    : [];
+
+  return {
+    kicker: String(input.kicker || fallback.kicker).slice(0, 18),
+    title: String(input.title || fallback.title).slice(0, 28),
+    conclusion: String(input.conclusion || fallback.conclusion).slice(0, 90),
+    bullets: bullets.length ? bullets : fallback.bullets,
+    footer: String(input.footer || fallback.footer).slice(0, 36),
+    imagePrompt: String(input.imagePrompt || fallback.imagePrompt).slice(0, 1400)
+  };
+}
+
+function fallbackVisualBrief(payload) {
+  const { state, style } = payload;
+  const actions = Array.isArray(state.localActions) && state.localActions.length
+    ? state.localActions.slice(0, 3)
+    : ["记录 7 天睡眠和压力", "每周增加 1-2 次菌菇类食物", "变化明显时咨询医生"];
+  const title = state.concern ? `${state.concern}复盘` : "脑健康生活方式复盘";
+
+  return {
+    kicker: "AI 脑健康复盘",
+    title,
+    conclusion: "先做低风险生活方式记录，再决定是否需要进一步咨询医生。",
+    bullets: actions.map((item) => String(item).slice(0, 22)),
+    footer: "健康信息整理，不替代医生诊断。",
+    imagePrompt: `Create a warm Chinese health magazine infographic background for a brain-health self-review poster. Style: ${style}. Use natural daylight, calm green, warm white, notebook, mushrooms, oats, vegetables, water glass, soft family-care mood. Leave clean translucent space for Chinese text overlay. No readable text, no logo, no watermark, no pills, no supplement bottle, no hospital, no brain scan, no medical diagnosis symbols.`
+  };
+}
+
 function buildImagePrompt(payload) {
   const { style, state } = payload;
+  const visual = payload.visual || fallbackVisualBrief(payload);
   const base = [
-    "Create a warm, bright, realistic editorial lifestyle cover image for a Chinese brain-health self-reflection report.",
-    "No text, no letters, no logo, no watermark, no medical diagnosis symbols, no pills, no supplement bottle, no hospital, no brain scan.",
-    "Use natural daylight, calm green and soft cream tones, clean composition, premium but approachable health magazine style.",
-    "Include everyday food and lifestyle cues: shiitake or oyster mushrooms, oats, vegetables, a notebook for sleep and memory notes, a glass of water, a phone placed face down.",
+    visual.imagePrompt,
+    "The final page will overlay Chinese text separately, so the generated image must contain no readable text, no letters, no logo, and no watermark.",
+    "Create a polished infographic-poster background with clear visual hierarchy, gentle lifestyle photography or editorial illustration, and enough quiet space for text panels.",
+    "No medical diagnosis symbols, no pills, no supplement bottle, no hospital, no brain scan.",
+    "Include everyday food and lifestyle cues only when natural: shiitake or oyster mushrooms, oats, vegetables, a notebook for sleep and memory notes, a glass of water, a phone placed face down.",
     `User context: concern is ${state.concern}, age band ${state.ageBand}, role is ${state.roleType}, mushroom meals per week ${state.mushroomMealsPerWeek}, flags: ${state.flags.join(", ") || "none"}.`,
     "The image should suggest gentle self-review and family care, not fear, disease, or miracle cures."
   ];
 
   const styleLine = {
-    report: "Composition: horizontal report cover, a calm desk or breakfast table scene with notebook and healthy foods, space for website overlay text outside the generated image.",
-    parent: "Composition: an adult child and an older parent at a bright kitchen table, gently reviewing a notebook together, caring and calm, no sadness or clinical atmosphere.",
-    social: "Composition: square social media cover image, top-down clean table layout, visually attractive first image for Xiaohongshu or WeChat Moments, with strong focal point and no written words."
+    report: "Composition: square-to-portrait report poster background, calm desk or breakfast table scene, large quiet lower area for overlay text.",
+    parent: "Composition: adult child and older parent at a bright kitchen table, gently reviewing a notebook together, caring and calm, with quiet lower area for overlay text.",
+    social: "Composition: square social media poster background, top-down clean table layout, visually attractive first image for Xiaohongshu or WeChat Moments, strong focal point, quiet lower area for overlay text."
   }[style] || "";
 
   return `${base.join(" ")} ${styleLine}`;
 }
 
-function imageCaption(style) {
+function imageCaption(style, basedOnReport = false) {
+  if (basedOnReport) {
+    return {
+      report: "图文海报已生成：文字来自报告要点，图片来自 AI，可放在详细报告开头。",
+      parent: "图文海报已生成：适合搭配温和话术发给家人，不制造焦虑。",
+      social: "图文海报已生成：适合做小红书/朋友圈首图，先测点击和收藏。"
+    }[style] || "图文海报已生成。";
+  }
   return {
     report: "报告封面图已生成：适合放在详细报告开头，承接后面的文字解读。",
     parent: "父母沟通图已生成：适合搭配温和话术发给家人，不制造焦虑。",
